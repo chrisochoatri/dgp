@@ -459,6 +459,46 @@ class SceneContainer:
             logging.debug(f'Missing {filename}')
             return False
 
+    def get_autolabels(self, sample_idx_in_scene, datum_name):
+        """Get autolabels associated with a datum if available
+
+        Parameters
+        ----------
+        scene_idx: int
+            Index of the scene.
+
+        sample_idx_in_scene: int
+            Index of the sample within the scene at scene_idx.
+
+        datum_name: str
+            Name of the datum within sample
+
+        Returns
+        -------
+        autolabels: dict
+            Map of <autolabel_model>/<annotation_key> : <annotation_path>. Returns empty dictionary
+            if no autolabels exist for that datum.
+        """
+        autolabels = dict()
+        if self.autolabeled_scenes is None:
+            return autolabels
+
+        datum_idx_in_scene = self.datum_index[sample_idx_in_scene].loc[datum_name].data
+        datum = self.data[datum_idx_in_scene]
+
+        # autolabel scene should have the same datum_idx??? can we be sure?
+
+        datum_type = datum.datum.WhichOneof('datum_oneof')
+        for autolabel_key, autolabeled_scene in self.autolabeled_scenes.items():
+            (_autolabel_model, annotation_key) = os.path.split(autolabel_key)
+            requested_annotation_id = ANNOTATION_KEY_TO_TYPE_ID[annotation_key]
+            # TODO: how do we know the same datum_idx is valid here?
+            annotations = getattr(autolabeled_scene.data[datum_idx_in_scene].datum, datum_type).annotations
+            if requested_annotation_id in annotations:
+                autolabels[autolabel_key] = annotations[requested_annotation_id]
+
+        return autolabels
+
 
 class DatasetMetadata:
     """A Wrapper Dataset metadata class to support two entrypoints for datasets
@@ -1252,6 +1292,38 @@ class BaseDataset:
                 annotation_objects[annotation_key] = ANNOTATION_REGISTRY[annotation_key].load(annotation_file, None)
             else:
                 raise Exception(f"Cannot load annotation type {annotation_key}, no ontology found!")
+
+        # Now do the same but for autolabels
+        autolabel_annotations = self.get_autolabels_for_datum(scene_idx, sample_idx_in_scene, datum_name)
+        for autolabel_key in self.requested_autolabels:
+            # Some datums on a sample may not have associated annotations. Return "None" for those datums
+            model_name, annotation_key = autolabel_key.split('/')
+            annotation_path = autolabel_annotations.get( autolabel_key , None)
+            
+            if annotation_path is None:
+                autolabel_annotations[autolabel_key] = None
+                continue
+
+            annotation_file = os.path.join(self.scenes[scene_idx].directory, 'autolabels', annotation_path)
+            if not os.path.exists(annotation_file):
+                logging.warning(f'missing {annotation_file}')
+                autolabel_annotations[autolabel_key] = None
+                continue
+            
+            if autolabel_key in self.dataset_metadata.ontology_table:
+                # Load annotation object with ontology
+                autolabel_annotations[autolabel_key] = ANNOTATION_REGISTRY[annotation_key].load(
+                    annotation_file, self.dataset_metadata.ontology_table[autolabel_key]
+                )
+
+            elif ONTOLOGY_REGISTRY[annotation_key] is None:
+                # Some tasks have no associated ontology
+                autolabel_annotations[autolabel_key] = ANNOTATION_REGISTRY[annotation_key].load(annotation_file, None)
+            else:
+                raise Exception(f"Cannot load annotation type {autolabel_key}, no ontology found!")
+
+        annotation_objects.update(autolabel_annotations)
+
         return annotation_objects
 
     @staticmethod
