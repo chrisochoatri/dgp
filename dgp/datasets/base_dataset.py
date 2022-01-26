@@ -974,7 +974,7 @@ class BaseDataset:
             for (name, intrinsic, extrinsic) in zip(calibration.names, calibration.intrinsics, calibration.extrinsics):
                 p_WS = Pose.load(extrinsic)
                 # If the intrinsics are invalid, i.e. fx = fy = 0, then it is
-                # assumed to be a LIDAR sensor.
+                # assumed to be a LIDAR or RADAR sensor.
                 cam = Camera.from_params(
                     intrinsic.fx, intrinsic.fy, intrinsic.cx, intrinsic.cy, p_WS
                 ) if intrinsic.fx > 0 and intrinsic.fy > 0 else None
@@ -1298,8 +1298,8 @@ class BaseDataset:
         for autolabel_key in self.requested_autolabels:
             # Some datums on a sample may not have associated annotations. Return "None" for those datums
             model_name, annotation_key = autolabel_key.split('/')
-            annotation_path = autolabel_annotations.get( autolabel_key , None)
-            
+            annotation_path = autolabel_annotations.get(autolabel_key, None)
+
             if annotation_path is None:
                 autolabel_annotations[autolabel_key] = None
                 continue
@@ -1309,7 +1309,7 @@ class BaseDataset:
                 logging.warning(f'missing {annotation_file}')
                 autolabel_annotations[autolabel_key] = None
                 continue
-            
+
             if autolabel_key in self.dataset_metadata.ontology_table:
                 # Load annotation object with ontology
                 autolabel_annotations[autolabel_key] = ANNOTATION_REGISTRY[annotation_key].load(
