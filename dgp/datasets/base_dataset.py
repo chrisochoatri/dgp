@@ -233,10 +233,17 @@ class SceneContainer:
         if self.autolabeled_scenes is not None:
             # Merge autolabeled scene ontologies into base scene ontology index.
             # Per autolabeled scene, we should only have a single ontology file.
+
+            # TODO: maybe remove this single ontology file constraint
+            # no reason to have an autolabel be 1-1, the same scene can/should
+            # be used for multiple annotations types because a single model can/should/will
+            # output multiple predictions.
+
             ontology_files.update({
                 autolabel_key: list(autolabeled_scene.ontology_files.values())[0]
                 for autolabel_key, autolabeled_scene in self.autolabeled_scenes.items()
             })
+
         return ontology_files
 
     @property
@@ -596,11 +603,25 @@ class DatasetMetadata:
         st = time.time()
 
         # Determine scenes with unique ontologies based on the ontology file basename.
-        unique_scenes = {
-            os.path.basename(f): scene_container
-            for scene_container in scene_containers
-            for _, _, filenames in os.walk(os.path.join(scene_container.directory, ONTOLOGY_FOLDER)) for f in filenames
-        }
+        # unique_scenes = {
+        #     os.path.basename(f): scene_container
+        #     for scene_container in scene_containers
+        #     for _, _, filenames in os.walk(os.path.join(scene_container.directory, ONTOLOGY_FOLDER)) for f in filenames
+        # }
+
+        # I don't know why we walk a directory instead of taking the ontology files directly from
+        # the scene proto. But the above does not fetch the autolabel ontologies
+        # the above does not consider the case where a scene has no ontologies, but its autolabeled
+        # scenes do.
+
+        # Determine scenes with unique ontologies based on the ontology file basename.
+        unique_scenes = {}
+        for scene in scene_containers:
+            basenames = { os.path.basename(v):scene for v in scene.ontology_files.values() }
+            unique_scenes.update(basenames)
+
+
+        #print('unique scenes', unique_scenes)
         # Parse through relevant scenes that have unique ontology keys.
         for _, scene_container in unique_scenes.items():
             for ontology_key, ontology_file in scene_container.ontology_files.items():
