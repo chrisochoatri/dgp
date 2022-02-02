@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment
@@ -8,13 +8,25 @@ from dgp.annotations.bounding_box_3d_annotation import (BoundingBox3D, BoundingB
 from dgp.utils.pose import Pose
 
 
+def vel_to_rot(vel):
+    """Convert velocity to rotation matrix"""
+    # TODO: double check. Also this fails if velocity is 0
+    up = np.array([0, 0.0, 1.0])
+    u = vel / np.linalg.norm(vel)
+    v = -1 * np.cross(u, up)
+    v /= np.linalg.norm(v)
+    w = np.cross(u, v)
+    return np.stack([u, v, w], -1)
+
+
 class KalmanFilterTrack():
     def __init__(
         self,
-        process_noise_args,
-        measurement_noise_args,
-        initial_sigma_args,
+        process_noise_args: Dict[str, Any],
+        measurement_noise_args: Dict[str, Any],
+        initial_sigma_args: Dict[str, Any],
     ):
+        """Base class for dgp BoundingBox3D Kalman filters"""
         self.observations = []
         self.mus = []
         self.sigmas = []
@@ -26,38 +38,47 @@ class KalmanFilterTrack():
         self.misses = 0
         self.status = 'new'
         self.score = None
-        self.class_id = 0
+        self.class_id = None
         self.process_noise_args = process_noise_args
         self.measurement_noise_args = measurement_noise_args
         self.initial_sigma_args = initial_sigma_args
         self.mu = None
         self.sigma = None
 
-    def initial_mu(self, box):
+    def initial_mu(self, box: BoundingBox3D) -> np.ndarray:
+        """Inits state"""
         raise NotImplementedError
 
-    def initial_sigma(self, box):
+    def initial_sigma(self, box: BoundingBox3D) -> np.ndarray:
+        """Inits covariance"""
         raise NotImplementedError
 
-    def measurement_model(self):
+    def measurement_model(self) -> np.ndarray:
+        """Returns matrix to project state to measurement (H)"""
         raise NotImplementedError
 
-    def measurement_noise(self, measurement_noise_args):
+    def measurement_noise(self, measurement_noise_args: Dict[str, Any]) -> np.ndarray:
+        """Returns measurement covariance matrix"""
         raise NotImplementedError
 
-    def process_model(self, mu, dt):
+    def process_model(self, mu: np.ndarray, dt: float) -> np.ndarray:
+        """Returns state transition matrix F"""
         raise NotImplementedError
 
-    def process_noise(self, mu, dt, process_noise_args):
+    def process_noise(self, mu: np.ndarray, dt: float, process_noise_args: Dict[str, Any]) -> np.ndarray:
+        """Returns process noise covariance Q"""
         raise NotImplementedError
 
     def box_to_state(self, box: BoundingBox3D) -> np.ndarray:
+        """Converts a bounding box 3d object into a state (mean) vector"""
         raise NotImplementedError
 
-    def state_to_box(self, mu, sigma):
+    def state_to_box(self, mu: np.ndarray, sigma: np.ndarray) -> BoundingBox3D:
+        """Converts a state vector to a bounding box 3d"""
         raise NotImplementedError
 
-    def predict(self, dt: float):
+    def predict(self, dt: float) -> Tuple[np.ndarray, np.ndarray]:
+        """Predicts new cuboid state using process model F and noise Q. Returns belief center and covariance"""
         Q = self.process_noise(self.mu, dt, self.process_noise_args)
         F = self.process_model(self.mu, dt)
         mu = F @ self.mu
@@ -70,7 +91,7 @@ class KalmanFilterTrack():
         return mu, sigma
 
     def update(self, box: Optional[BoundingBox3D], sample_idx, init=False):
-
+        """Updates cuboid state with new observations. Tracks hits/misses"""
         if box is not None:
             self.misses = 0
             self.hits += 1
@@ -113,7 +134,8 @@ class KalmanFilterTrack():
 
         return mu, sigma
 
-    def mahalnobis(self, boxes):
+    def mahalnobis(self, boxes: Union[List[BoundingBox3D], BoundingBox3DAnnotationList]) -> np.ndarray:
+        """Return distance between box observations and most recent uncertain track state"""
         H = self.measurement_model()
         R = self.measurement_noise(self.measurement_noise_args)
         VI = np.linalg.inv(H @ self.sigma @ H.T)
@@ -121,7 +143,9 @@ class KalmanFilterTrack():
         observations = [self.box_to_state(box) for box in boxes]
         return np.array([np.sqrt((z - mu) @ VI @ (z - mu).T) for z in observations])
 
-    def get_state_by_sample_idx(self, sample_idx):
+    def get_state_by_sample_idx(self, sample_idx: int):
+        """Helper function to associate track state to global (external) sample index.
+        Required to map tracks back to dgp samples."""
         # get max good observation
         valid_idx = np.array([i for i, box in enumerate(self.observations) if box is not None])
 
@@ -143,7 +167,8 @@ class KalmanFilterTrack():
                 box = self.observations[new_idx]
             return self.mus[idx], self.sigmas[idx], box
 
-    def smooth(self):
+    def smooth(self) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+        """Run filter backward with fixed association to smooth states. Implements Rauch-Tung-Striebel smoothing."""
         # Adapted from https://nbviewer.org/github/rlabbe/Kalman-and-Bayesian-Filters-in-Python/blob/master/13-Smoothing.ipynb
         N = len(self.mus)
         m = self.mu.shape[0]
@@ -167,7 +192,8 @@ class ConstantVelocityKF(KalmanFilterTrack):
     # State space is x,y,z, vx,vy,vz, l,h,w
     def measurement_model(self):
         # only measure x,y,z, l, h,w   (6,9) ( 9,1) = (6,1)
-        return np.array([
+        # yapf: disable
+        H= np.array([
             [1, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 1, 0, 0, 0, 0, 0, 0, 0],
             [0, 0, 1, 0, 0, 0, 0, 0, 0],
@@ -175,6 +201,8 @@ class ConstantVelocityKF(KalmanFilterTrack):
             [0, 0, 0, 0, 0, 0, 0, 1, 0],
             [0, 0, 0, 0, 0, 0, 0, 0, 1],
         ])
+        # yapf: enable
+        return H
 
     def measurement_noise(self, measurement_noise_args):
         # TODO: make the noise depend on distace from ego
@@ -186,43 +214,34 @@ class ConstantVelocityKF(KalmanFilterTrack):
         return R
 
     def process_model(self, mu, dt):
-        F = np.array([[1, 0, 0, dt, 0, 0, 0, 0, 0], [0, 1, 0, 0, dt, 0, 0, 0, 0], [0, 0, 1, 0, 0, dt, 0, 0, 0],
-                      [0, 0, 0, 1, 0, 0, 0, 0, 0], [0, 0, 0, 0, 1, 0, 0, 0, 0], [0, 0, 0, 0, 0, 1, 0, 0, 0],
-                      [0, 0, 0, 0, 0, 0, 1, 0, 0], [0, 0, 0, 0, 0, 0, 0, 1, 0], [0, 0, 0, 0, 0, 0, 0, 0, 1]])
+        # yapf: disable
+        F = np.array([
+            [1, 0, 0, dt, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, dt, 0, 0, 0, 0],
+            [0, 0, 1, 0, 0, dt, 0, 0, 0],
+            [0, 0, 0, 1, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 1, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 1, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 1]
+        ])
+        # yapf: enable
         return F
 
     def process_noise(self, mu, dt, process_noise_args):
         sv = process_noise_args['process_noise_velocity_var']
         sd = process_noise_args['process_noise_dim_var']
+        # yapf: disable
         Qv = sv * np.array([
-            [
-                .25 * dt**4,
-                0,
-                0,
-                .5 * dt**3,
-                0,
-                0,
-            ],
-            [
-                0,
-                .25 * dt**4,
-                0,
-                0,
-                .5 * dt**3,
-                0,
-            ],
-            [
-                0,
-                0,
-                .25 * dt**4,
-                0,
-                0,
-                .5 * dt**3,
-            ],
-            [.5 * dt**2, 0, 0, dt**2, 0, 0],
-            [0, .5 * dt**2, 0, 0, dt**2, 0],
-            [0, 0, .5 * dt**2, 0, 0, dt**2],
+            [.25 * dt**4,0              ,0              ,.5 * dt**3     ,0          ,0          ],
+            [0          ,.25 * dt**4    ,0              ,0              ,.5 * dt**3 ,0          ],
+            [0          ,0              ,.25 * dt**4    ,0              ,0          ,.5 * dt**3 ],
+            [.5 * dt**2 ,0              ,0              ,dt**2          ,0          ,0          ],
+            [0          ,.5 * dt**2     ,0              ,0              ,dt**2      ,0          ],
+            [0          ,0              ,.5 * dt**2     ,0              ,0          ,dt**2      ],
         ])
+        # yapf: enable
 
         Q = np.zeros((9, 9))
         Q[:6, :6] = Qv
@@ -239,9 +258,9 @@ class ConstantVelocityKF(KalmanFilterTrack):
         R = vel_to_rot(vel)
         speed = np.linalg.norm(vel)  # TODO: maybe just x,y plane speed?
         if speed < 1 and org_box is not None:
-            pose = org_box.pose
-        else:
-            pose = Pose.from_rotation_translation(R, tvec)
+            R = org_box.pose.rotation_matrix
+
+        pose = Pose.from_rotation_translation(R, tvec)
         #print('tvec', pose.tvec, 'vel', vel)
         box = BoundingBox3D(pose, dims, self.class_id, instance_id=instance_id)
         box.attributes['score'] = str(self.score)
