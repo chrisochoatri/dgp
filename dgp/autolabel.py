@@ -40,14 +40,19 @@ ANNOTATION_TYPE_ID_TO_FOLDER = {
 
 
 class DGPAutolabelScene():
-    def __init__(self, dataset, scene_index, model_name, autolabel_keys: List[str], ontology_table=None):
+    def __init__(self, dataset, scene_index, model_name, autolabel_keys: List[str], ontology_table=None, autolabel_root=None):
 
         self.scene_index = scene_index
         self.dataset_item_index = dataset.dataset_item_index
         self.datum_index = dataset.scenes[scene_index].datum_index
         base_scene_file = dataset.scenes[scene_index].scene_path
         self.scene = open_pbobject(base_scene_file, Scene)
+        self.autolabel_root= autolabel_root
         self.scene_dir = os.path.dirname(base_scene_file)
+        if self.autolabel_root is not None:
+            print(os.path.abspath(self.autolabel_root))
+            self.scene_dir = os.path.join(os.path.abspath(self.autolabel_root), os.path.basename(self.scene_dir) )
+            logging.info(f'autolabels will be saved to {self.scene_dir}')
         self.model_name = model_name
         self.autolabel_keys = autolabel_keys
 
@@ -153,7 +158,7 @@ class DGPAutoLabeler():
         autolabel_keys: List[str],
         post_processor: Optional[Callable] = None,
         ar_steps: int = 1,
-        ontology_table: Optional[Dict[str, Ontology]] = None
+        ontology_table: Optional[Dict[str, Ontology]] = None,
     ):
         self.model = model
         self.ar_steps = ar_steps
@@ -188,8 +193,7 @@ class DGPAutoLabeler():
         # objects
         return sample
 
-    def autolabel_scene(self, scene_index, dataset, device='cuda:0'):
-
+    def autolabel_scene(self, scene_index, dataset, autolabel_root=None,device='cuda:0'):
         # open the raw scene
         sample_idx = sorted([
             i for i, (scene_idx, _, _) in enumerate(dataset.dataset_item_index) if scene_idx == scene_index
@@ -236,10 +240,13 @@ class DGPAutoLabeler():
             scene_index,
             self.model_name,
             autolabel_keys=self.autolabel_keys,
-            ontology_table=self.ontology_table
+            ontology_table=self.ontology_table,
+            autolabel_root = autolabel_root,
         )
 
+        logging.info('saving results')
         scene.save(sample_idx, self.outputs_dgp)
+    
 
 
 class DGPTestLidarCuboidAutoLabeler(DGPAutoLabeler):
@@ -324,5 +331,6 @@ class DGPLidarCuboidAutoLabeler(DGPAutoLabeler):
 
         ontology = self.ontology_table['bounding_box_3d']
         new_sample[-1]['bounding_box_3d'] = BoundingBox3DAnnotationList(ontology, boxlist)
+        assert new_sample[-1]['bounding_box_3d'] is not None
 
         return new_sample

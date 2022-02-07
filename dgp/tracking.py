@@ -280,7 +280,99 @@ class ConstantVelocityKF(KalmanFilterTrack):
         np.fill_diagonal(sigma, sig)
         return sigma
 
+# class CV2KF(KalmanFilterTrack):
+#     # State space is x,y,z, yaw angle, speed_xy, v_z,  l,h,w
+#     # same as constant velocity but with different parameterization
+#     def measurement_model(self):
+#         # only measure x,y,z, l, h,w   (6,9) ( 9,1) = (6,1)
+#         # yapf: disable
+#         H= np.array([
+#             [1, 0, 0, 0, 0, 0, 0, 0, 0],
+#             [0, 1, 0, 0, 0, 0, 0, 0, 0],
+#             [0, 0, 1, 0, 0, 0, 0, 0, 0],
+#             [0, 0, 0, 0, 0, 0, 1, 0, 0],
+#             [0, 0, 0, 0, 0, 0, 0, 1, 0],
+#             [0, 0, 0, 0, 0, 0, 0, 0, 1],
+#         ])
+#         # yapf: enable
+#         return H
 
+#     def measurement_noise(self, measurement_noise_args):
+#         # TODO: make the noise depend on distace from ego
+#         sx = measurement_noise_args['measurement_noise_position_var']
+#         sd = measurement_noise_args['measurement_noise_dim_var']
+#         R = np.eye(6)
+#         R[:3, :3] *= sx
+#         R[3:, 3:] *= sd
+#         return R
+
+#     def process_model(self, mu, dt):
+#         # yapf: disable
+#         F = np.array([
+#             [1, 0, 0, dt, 0, 0, 0, 0, 0],
+#             [0, 1, 0, 0, dt, 0, 0, 0, 0],
+#             [0, 0, 1, 0, 0, dt, 0, 0, 0],
+#             [0, 0, 0, 1, 0, 0, 0, 0, 0],
+#             [0, 0, 0, 0, 1, 0, 0, 0, 0],
+#             [0, 0, 0, 0, 0, 1, 0, 0, 0],
+#             [0, 0, 0, 0, 0, 0, 1, 0, 0],
+#             [0, 0, 0, 0, 0, 0, 0, 1, 0],
+#             [0, 0, 0, 0, 0, 0, 0, 0, 1]
+#         ])
+#         # yapf: enable
+#         return F
+
+#     def process_noise(self, mu, dt, process_noise_args):
+#         sv = process_noise_args['process_noise_velocity_var']
+#         sd = process_noise_args['process_noise_dim_var']
+#         # yapf: disable
+#         Qv = sv * np.array([
+#             [.25 * dt**4,0              ,0              ,.5 * dt**3     ,0          ,0          ],
+#             [0          ,.25 * dt**4    ,0              ,0              ,.5 * dt**3 ,0          ],
+#             [0          ,0              ,.25 * dt**4    ,0              ,0          ,.5 * dt**3 ],
+#             [.5 * dt**2 ,0              ,0              ,dt**2          ,0          ,0          ],
+#             [0          ,.5 * dt**2     ,0              ,0              ,dt**2      ,0          ],
+#             [0          ,0              ,.5 * dt**2     ,0              ,0          ,dt**2      ],
+#         ])
+#         # yapf: enable
+
+#         Q = np.zeros((9, 9))
+#         Q[:6, :6] = Qv
+#         Q[6:, 6:] = sd * np.eye(3, 3)
+#         return Q
+
+#     def box_to_state(self, box: BoundingBox3D) -> np.ndarray:
+#         return np.concatenate([box.pose.tvec, box.sizes])
+
+#     def state_to_box(self, mu, sigma, org_box, instance_id):
+#         tvec = mu[:3]
+#         vel = mu[3:6]
+#         dims = mu[6:9]
+#         R = vel_to_rot(vel)
+#         speed = np.linalg.norm(vel)  # TODO: maybe just x,y plane speed?
+#         if speed < 1 and org_box is not None:
+#             R = org_box.pose.rotation_matrix
+
+#         pose = Pose.from_rotation_translation(R, tvec)
+#         #print('tvec', pose.tvec, 'vel', vel)
+#         box = BoundingBox3D(pose, dims, self.class_id, instance_id=instance_id)
+#         box.attributes['score'] = str(self.score)
+#         box.attributes['speed'] = str(speed)
+#         return box
+
+#     def initial_mu(self, box):
+#         heading = box.pose.rotation_matrix[:, 0]
+#         heading[2] = 0
+#         return np.concatenate([box.pose.tvec, heading, box.sizes])
+
+#     def initial_sigma(self, box):
+#         sigma_x, sigma_v, sigma_d = self.initial_sigma_args['sigma_x'], self.initial_sigma_args[
+#             'sigma_v'], self.initial_sigma_args['sigma_d']
+#         sig = np.concatenate([sigma_x, sigma_v, sigma_d])
+#         sigma = np.eye(len(sig))
+#         np.fill_diagonal(sigma, sig)
+#         return sigma
+from scipy.spatial.distance import cdist
 class Tracker():
     last_track_id = 0
 
@@ -295,6 +387,8 @@ class Tracker():
         max_misses_to_forget_tracked=10,
         match_threshold=30,
         min_box_score=.1,
+        cuboid_key = 'bounding_box_3d',
+        cuboid_datum = 'lidar',
     ):
         self.min_hits_to_track = min_hits_to_track
         self.max_misses_to_forget_new = max_misses_to_forget_new
@@ -308,6 +402,8 @@ class Tracker():
         self.process_noise_args = process_noise_args
         self.measurement_noise_args = measurement_noise_args
         self.initial_sigma_args = initial_sigma_args
+        self.cuboid_key = cuboid_key
+        self.cuboid_datum = cuboid_datum
 
     def register_track(self, box, sample_index):
         track = self.track_type(self.process_noise_args, self.measurement_noise_args, self.initial_sigma_args)
@@ -347,7 +443,17 @@ class Tracker():
         return [k for k, v in self._tracks.items() if v.status in ('new', 'tracking')]
 
     def match(self, D, thresh=10):
+        
         matches = linear_sum_assignment(D)
+
+        # try:
+        #     Dvalid = [D[i,j] for i,j in zip(*matches)]
+        #     print('input', np.mean(D), np.max(D), np.min(D))
+        #     print('raw', np.mean(Dvalid), np.max(Dvalid), np.min(Dvalid))
+        # except:
+        #     pass
+
+
         valid = []
         for row, col in zip(*matches):
             if D[row, col] <= thresh:
@@ -376,7 +482,16 @@ class Tracker():
         for i, k in enumerate(current_track_ids):
             D[i, :] = self._tracks[k].mahalnobis(new_observations)
 
+        # classes_current = [self._tracks[k].class_id for k in current_track_ids]
+        # classes_new = [box.class_id for box in new_observations]
+
+        # Dclass = 10*cdist( np.array(classes_current).reshape(-1,1) , np.array(classes_new).reshape(-1,1), metric='hamming') # 0 same 1 different
+        # D += Dclass
+
         matches = self.match(D, self.match_threshold)
+
+        # # filter again for same class
+        # matches = [(i,j) for i, j in matches if Dclass[i,j] ==0]
 
         for match_old_idx, match_new_idx in matches:
             k = current_track_ids[match_old_idx]
@@ -388,6 +503,10 @@ class Tracker():
         if len(matches) == 0:
             match_old, match_new = [], []
         else:
+
+            Dvalid = [D[i,j] for i,j in matches]
+            #print(np.mean(Dvalid), np.max(Dvalid), np.min(Dvalid))
+
             match_old, match_new = zip(*matches)
 
         # Not matched current: add None observation
@@ -405,21 +524,25 @@ class Tracker():
         self.prior_t = t
         self.update_track_status()
 
-    def run(self, samples, key='second/bounding_box_3d'):
+    def run(self, samples):
         # samples: list[ dgp samples]
         # lidar -1 for now
 
         # run forward
         for sample_index, sample in enumerate(samples):
-            lidar = sample[-1]
+            datum_dict = {datum['datum_name'].lower():datum for datum in sample}
+            lidar = datum_dict[self.cuboid_datum]
             lidar_pose = lidar['pose']
             t = lidar['timestamp'] / 1e7
-            observations = lidar[key].boxlist
+            observations = lidar[self.cuboid_key].boxlist
             self.step(observations, lidar_pose, sample_index, t)
 
         # smooth
         for k in self.valid_track_ids:
             self._tracks[k].smooth()
+
+        # final filter
+        self.valid_track_ids = [k for k in self.valid_track_ids if self._tracks[k].score >= self.min_box_score]
 
         # convert back to BoundingBox3D
         for sample_index, sample in enumerate(samples):
@@ -430,9 +553,9 @@ class Tracker():
             boxlist = []
             for k in self.valid_track_ids:
                 v = self._tracks[k]
-                if v.score < self.min_box_score:
-                    #print('skipping low score', v.score)
-                    continue
+                # if v.score < self.min_box_score:
+                #     #print('skipping low score', v.score)
+                #     continue
 
                 state = v.get_state_by_sample_idx(sample_index)
                 if state is not None:
@@ -441,6 +564,11 @@ class Tracker():
                     box._pose = lidar_pose_inv * box.pose
                     boxlist.append(box)
 
-            sample[-1][key].boxlist = boxlist
+            sample[-1][self.cuboid_key].boxlist = boxlist
 
         return samples
+
+    def __call__(self, samples):
+        new_samples = self.run(samples)
+        print(f'generated {len(self.valid_track_ids)} tracks')
+        return new_samples

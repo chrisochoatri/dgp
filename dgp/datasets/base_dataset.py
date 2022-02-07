@@ -21,7 +21,7 @@ import xarray as xr
 from diskcache import Cache
 from PIL import Image
 
-from dgp import (AUTOLABEL_FOLDER, CALIBRATION_FOLDER, DGP_CACHE_DIR, ONTOLOGY_FOLDER, SCENE_JSON_FILENAME)
+from dgp import (AUTOLABEL_FOLDER, CALIBRATION_FOLDER, DGP_CACHE_DIR, ONTOLOGY_FOLDER, SCENE_JSON_FILENAME, autolabel)
 from dgp.annotations import ANNOTATION_REGISTRY, ONTOLOGY_REGISTRY
 from dgp.constants import ANNOTATION_KEY_TO_TYPE_ID, ANNOTATION_TYPE_ID_TO_KEY
 from dgp.proto import dataset_pb2, radar_point_cloud_pb2
@@ -727,6 +727,7 @@ class BaseDataset:
         requested_annotations=None,
         requested_autolabels=None,
         split=None,
+        autolabel_root=None,
     ):
         logging.info(f'Instantiating dataset with {len(scenes)} scenes.')
         # Dataset metadata
@@ -784,6 +785,9 @@ class BaseDataset:
         # For example:
         # >> sample_metadata = self.metadata_index[(scene_idx, sample_idx_scene)]
         self.additional_metadata = None
+        self.autolabel_root=autolabel_root
+        if self.autolabel_root is not None:
+            self.autolabel_root = os.path.abspath(self.autolabel_root)
 
     @staticmethod
     def _extract_scenes_from_scene_dataset_json(
@@ -793,7 +797,8 @@ class BaseDataset:
         is_datums_synchronized=False,
         use_diskcache=True,
         skip_missing_data=False,
-        dataset_root=None
+        dataset_root=None,
+        autolabel_root = None,
     ):
         """Extract scene objects and calibration from the scene dataset JSON
         for the appropriate split.
@@ -864,6 +869,7 @@ class BaseDataset:
                         is_datums_synchronized=is_datums_synchronized,
                         use_diskcache=use_diskcache,
                         skip_missing_data=skip_missing_data,
+                        autolabel_root = autolabel_root,
                     ), scene_jsons
                 )
             )
@@ -904,6 +910,7 @@ class BaseDataset:
         is_datums_synchronized=False,
         use_diskcache=True,
         skip_missing_data=False,
+        autolabel_root = None,
     ):
         """Extract scene object and calibration from a single scene JSON.
         If autolabels are requested, inject them into the SceneContainer and merge ontologies
@@ -928,7 +935,8 @@ class BaseDataset:
             requested_autolabels,
             is_datums_synchronized,
             use_diskcache=use_diskcache,
-            skip_missing_data=skip_missing_data
+            skip_missing_data=skip_missing_data,
+            autolabel_root = autolabel_root,
         )
         return scene_container
 
@@ -939,13 +947,14 @@ class BaseDataset:
         is_datums_synchronized=False,
         use_diskcache=True,
         skip_missing_data=False,
+        autolabel_root = None,
     ):
 
         scene_dir = os.path.dirname(scene_json)
 
         if requested_autolabels is not None:
             logging.debug(f"Loading autolabeled annotations from {scene_dir}.")
-            autolabeled_scenes = _parse_autolabeled_scenes(scene_dir, requested_autolabels)
+            autolabeled_scenes = _parse_autolabeled_scenes(scene_dir, requested_autolabels, autolabel_root = autolabel_root)
         else:
             autolabeled_scenes = None
 
@@ -1324,8 +1333,11 @@ class BaseDataset:
             if annotation_path is None:
                 autolabel_annotations[autolabel_key] = None
                 continue
+            if self.autolabel_root is not None:
+                annotation_file = os.path.join(self.autolabel_root, os.path.basename(self.scenes[scene_idx].directory), 'autolabels', annotation_path)
+            else:
+                annotation_file = os.path.join(self.scenes[scene_idx].directory, 'autolabels', annotation_path)
 
-            annotation_file = os.path.join(self.scenes[scene_idx].directory, 'autolabels', annotation_path)
             if not os.path.exists(annotation_file):
                 logging.warning(f'missing {annotation_file}')
                 autolabel_annotations[autolabel_key] = None
@@ -1764,7 +1776,7 @@ class BaseDataset:
         return data, annotations
 
 
-def _parse_autolabeled_scenes(scene_dir, requested_autolabels):
+def _parse_autolabeled_scenes(scene_dir, requested_autolabels, autolabel_root = None):
     """Parse autolabeled scene JSONs
 
     Parameters
@@ -1788,7 +1800,10 @@ def _parse_autolabeled_scenes(scene_dir, requested_autolabels):
             raise ValueError(
                 "Expected autolabel format <autolabel_model>/<annotation_key>, got {}".format(autolabel)
             ) from e
-        autolabel_dir = os.path.join(scene_dir, AUTOLABEL_FOLDER, autolabel_model)
+        if autolabel_root is not None:
+            autolabel_dir = os.path.join( os.path.abspath(autolabel_root), os.path.basename(scene_dir), AUTOLABEL_FOLDER, autolabel_model)
+        else:
+            autolabel_dir = os.path.join(scene_dir, AUTOLABEL_FOLDER, autolabel_model)
         autolabel_scene = os.path.join(autolabel_dir, SCENE_JSON_FILENAME)
 
         assert autolabel_type in ANNOTATION_KEY_TO_TYPE_ID, 'Autolabel type {} not valid'.format(autolabel_type)
