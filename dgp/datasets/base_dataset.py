@@ -33,6 +33,7 @@ from dgp.utils.camera import Camera
 from dgp.utils.pose import Pose
 from dgp.utils.protobuf import open_pbobject
 
+
 AVAILABLE_DATUM_TYPES = ("image", "point_cloud")
 
 
@@ -567,7 +568,7 @@ class DatasetMetadata:
         return stats
 
     @classmethod
-    def from_scene_containers(cls, scene_containers, requested_annotations=None, requested_autolabels=None):
+    def from_scene_containers(cls, scene_containers, requested_annotations=None, requested_autolabels=None, autolabel_root=None, ):
         """Load DatasetMetadata from Scene Dataset JSON.
 
         Parameters
@@ -580,6 +581,9 @@ class DatasetMetadata:
 
         requested_autolabels: List(str)
             List of autolabels, such as['model_a/bounding_box_3d', 'model_a/bounding_box_2d']
+
+        autolabel_root: str, default: None
+            Optional path to autolabel root directory
         """
         assert len(scene_containers), 'SceneContainers is empty.'
         requested_annotations = [] if requested_annotations is None else requested_annotations
@@ -601,27 +605,33 @@ class DatasetMetadata:
         dataset_ontology_table = {}
         logging.info('Building ontology table.')
         st = time.time()
-
+        
         # Determine scenes with unique ontologies based on the ontology file basename.
-        # unique_scenes = {
-        #     os.path.basename(f): scene_container
-        #     for scene_container in scene_containers
-        #     for _, _, filenames in os.walk(os.path.join(scene_container.directory, ONTOLOGY_FOLDER)) for f in filenames
-        # }
+        # NOTE: We walk the directories instead of taking the ontology files directly from the scene proto purely for performance reasons,
+        # a valid but slow method would be to call scene.ontology_files on ever scene.
+        unique_scenes = {
+            os.path.basename(f): scene_container
+            for scene_container in scene_containers
+            for _, _, filenames in os.walk(os.path.join(scene_container.directory, ONTOLOGY_FOLDER)) for f in filenames
+        }
 
-        # I don't know why we walk a directory instead of taking the ontology files directly from
-        # the scene proto. But the above does not fetch the autolabel ontologies
-        # the above does not consider the case where a scene has no ontologies, but its autolabeled
-        # scenes do.
+        # Do the same as above but for the autolabel scenes
+        # autolabels are in autolabel_root/<scene_dir>/autolabels/model_name/...>
+        if requested_autolabels is not None and len(scene_containers) > 0:
+            if autolabel_root is None:
+                autolabel_root = os.path.dirname(scene_containers[0].directory)
 
-        # Determine scenes with unique ontologies based on the ontology file basename.
-        unique_scenes = {}
-        for scene in scene_containers:
-            basenames = { os.path.basename(v):scene for v in scene.ontology_files.values() }
-            unique_scenes.update(basenames)
+            all_ontology_files = glob.glob( os.path.join(autolabel_root, '**',ONTOLOGY_FOLDER,'*'), recursive=True)
 
+            # Extract just the scene directory from the files found above
+            onotology_file_scene_dirs = [ os.path.dirname(os.path.relpath(f, autolabel_root)).split('/')[0] for f in all_ontology_files]
 
-        #print('unique scenes', unique_scenes)
+            # The contract with autolabels is that the scene directory name for the autolabel must match that of the non autolabel scene
+            # therefore we can find the original scene container by the directory
+            scene_dir_to_scene = { os.path.basename(scene_container.directory): scene_container for scene_container in scene_containers}
+            unique_autolabel_scenes = { os.path.basename(f): scene_dir_to_scene[k] for f,k in zip(all_ontology_files,onotology_file_scene_dirs)  if k in scene_dir_to_scene}
+            unique_scenes.update(unique_autolabel_scenes)
+
         # Parse through relevant scenes that have unique ontology keys.
         for _, scene_container in unique_scenes.items():
             for ontology_key, ontology_file in scene_container.ontology_files.items():

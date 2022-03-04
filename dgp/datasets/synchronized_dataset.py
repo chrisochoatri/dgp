@@ -440,7 +440,7 @@ class SynchronizedSceneDataset(_SynchronizedDataset):
         )
 
         # Return SynchronizedDataset with scenes built from dataset.json
-        dataset_metadata = DatasetMetadata.from_scene_containers(scenes, requested_annotations, requested_autolabels)
+        dataset_metadata = DatasetMetadata.from_scene_containers(scenes, requested_annotations, requested_autolabels, autolabel_root=autolabel_root)
         super().__init__(
             dataset_metadata,
             scenes=scenes,
@@ -506,7 +506,7 @@ class SynchronizedScene(_SynchronizedDataset):
         NOTE: Setting use_diskcache to False would exhaust the memory if have a large number of scenes.
 
     autolabel_root: str, default: None
-        Path to autolabels if not store inside scene root. Note this must still respect the scene structure, i.e,
+        Path to autolabels if not stored inside scene root. Note this must still respect the scene structure, i.e,
         autolabel_root = '/some-autolabels' means the autolabel scene.json is found at
         /some-autolabels/scene-dir/autoabels/scene.json.
 
@@ -540,7 +540,7 @@ class SynchronizedScene(_SynchronizedDataset):
         )
 
         # Return SynchronizedDataset with scenes built from dataset.json
-        dataset_metadata = DatasetMetadata.from_scene_containers([scene], requested_annotations, requested_autolabels)
+        dataset_metadata = DatasetMetadata.from_scene_containers([scene], requested_annotations, requested_autolabels, autolabel_root=autolabel_root,)
         super().__init__(
             dataset_metadata,
             scenes=[scene],
