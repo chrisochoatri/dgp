@@ -267,7 +267,7 @@ class SceneContainer:
         for datum_idx, datum in enumerate(self.data):
             datum_type = datum.datum.WhichOneof('datum_oneof')
             for autolabel_key, autolabeled_scene in self.autolabeled_scenes.items():
-                (_autolabel_model, annotation_key) = os.path.split(autolabel_key)
+                (_, annotation_key) = os.path.split(autolabel_key)
                 requested_annotation_id = ANNOTATION_KEY_TO_TYPE_ID[annotation_key]
                 annotations = getattr(autolabeled_scene.data[datum_idx].datum, datum_type).annotations
                 if requested_annotation_id in annotations:
@@ -751,6 +751,9 @@ class BaseDataset:
         Split of dataset to read ("train" | "val" | "test" | "train_overfit").
         If the split is None, the split type is not known and the dataset can
         be used for unsupervised / self-supervised learning.
+
+    autolabel_root: str, default: None
+       Optional path to autolabel root directory
     """
     def __init__(
         self,
@@ -861,6 +864,9 @@ class BaseDataset:
 
         dataset_root: str
             Optional path to dataset root folder. Useful if dataset scene json is not in the same directory as the rest of the data.
+
+        autolabel_root: str, default: None
+            Optional path to autolabel root directory
 
         Returns
         -------
@@ -1359,7 +1365,7 @@ class BaseDataset:
         # Now do the same but for autolabels
         autolabel_annotations = self.get_autolabels_for_datum(scene_idx, sample_idx_in_scene, datum_name)
         for autolabel_key in self.requested_autolabels:
-            # Some datums on a sample may not have associated annotations. Return "None" for those datums
+            # Some datums in a sample may not have associated annotations. Return "None" for those datums
             _, annotation_key = autolabel_key.split('/')
             # NOTE: model_name should already be stored in the scene json
             # which is why we do not have to add it here to the annotation_file

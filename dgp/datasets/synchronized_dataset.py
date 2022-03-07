@@ -60,6 +60,9 @@ class _SynchronizedDataset(BaseDataset):
 
     transform_accumulated_box_points: bool, default: False
         Flag to use cuboid pose and instance id to warp points when using lidar accumulation.
+
+    autolabel_root: str, default: None
+        Path to autolabels.
     """
     def __init__(
         self,
@@ -403,6 +406,11 @@ class SynchronizedSceneDataset(_SynchronizedDataset):
         If True, cache ScenePb2 object using diskcache. If False, save the object in memory.
         NOTE: Setting use_diskcache to False would exhaust the memory if have a large number of scenes.
 
+    autolabel_root: str, default: None
+        Path to autolabels if not stored inside scene root. Note this must still respect the scene structure, i.e,
+        autolabel_root = '/some-autolabels' means the autolabel scene.json is found at
+        /some-autolabels/<scene-dir>/autolabels/my-model/scene.json.
+
     Refer to _SynchronizedDataset for remaining parameters.
     """
     def __init__(
@@ -507,7 +515,7 @@ class SynchronizedScene(_SynchronizedDataset):
     autolabel_root: str, default: None
         Path to autolabels if not stored inside scene root. Note this must still respect the scene structure, i.e,
         autolabel_root = '/some-autolabels' means the autolabel scene.json is found at
-        /some-autolabels/scene-dir/autoabels/scene.json.
+        /some-autolabels/<scene-dir>/autolabels/my-model/scene.json.
 
     Refer to _SynchronizedDataset for remaining parameters.
     """
