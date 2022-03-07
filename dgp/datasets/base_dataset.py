@@ -317,17 +317,40 @@ class SceneContainer:
             Boolean index of annotations for this scene
         """
         logging.debug(f"Building annotation index for scene {self.scene_path}")
+
+        total_annotations = list(self.requested_annotations)
+        if self.autolabeled_scenes is not None:
+            total_annotations += list(self.autolabeled_scenes.keys())
+
         scene_annotation_index = xr.DataArray(
-            np.zeros((len(self.data), len(self.requested_annotations)), dtype=np.bool),
+            np.zeros((len(self.data), len(total_annotations) ), dtype=np.bool),
             dims=["datums", "annotations"],
-            coords={"annotations": list(self.requested_annotations)}
+            coords={"annotations": total_annotations}
         )
+
         requested_annotation_ids = [ANNOTATION_KEY_TO_TYPE_ID[ann] for ann in self.requested_annotations]
+
+        autolabel_ids = {}
+        if self.autolabeled_scenes is not None:
+            autolabel_ids = {ann:ANNOTATION_KEY_TO_TYPE_ID[ann.split('/')[1]] for ann in self.autolabeled_scenes }
+
         for datum_idx_in_scene, datum in enumerate(self.data):
             datum_annotations = BaseDataset.get_annotations(datum).keys()
-            scene_annotation_index[datum_idx_in_scene] = [
-                ann_id in datum_annotations for ann_id in requested_annotation_ids
-            ]
+            has_annotation = [ann_id in datum_annotations for ann_id in requested_annotation_ids]
+
+            # Find out which autolabels are present
+            has_autolabel = []   
+            for key, ann_id in autolabel_ids.items():
+                # TODO: make this robust to missing data
+                datum = self.autolabeled_scenes[key].data[datum_idx_in_scene]
+                datum_annotations = BaseDataset.get_annotations(datum).keys()
+                if ann_id in datum_annotations:
+                    has_autolabel.append(True)
+                else:
+                    has_autolabel.append(False)
+
+            scene_annotation_index[datum_idx_in_scene] = has_annotation + has_autolabel
+
         logging.debug(f'Done building annotation index for scene {self.scene_path}')
         return scene_annotation_index
 
@@ -964,7 +987,7 @@ class BaseDataset:
 
         if requested_autolabels is not None:
             logging.debug(f"Loading autolabeled annotations from {scene_dir}.")
-            autolabeled_scenes = _parse_autolabeled_scenes(scene_dir, requested_autolabels, autolabel_root = autolabel_root)
+            autolabeled_scenes = _parse_autolabeled_scenes(scene_dir, requested_autolabels, autolabel_root = autolabel_root, skip_missing_data=skip_missing_data)
         else:
             autolabeled_scenes = None
 
@@ -1337,7 +1360,9 @@ class BaseDataset:
         autolabel_annotations = self.get_autolabels_for_datum(scene_idx, sample_idx_in_scene, datum_name)
         for autolabel_key in self.requested_autolabels:
             # Some datums on a sample may not have associated annotations. Return "None" for those datums
-            model_name, annotation_key = autolabel_key.split('/')
+            _, annotation_key = autolabel_key.split('/')
+            # NOTE: model_name should already be stored in the scene json
+            # which is why we do not have to add it here to the annotation_file
             annotation_path = autolabel_annotations.get(autolabel_key, None)
 
             if annotation_path is None:
@@ -1786,7 +1811,7 @@ class BaseDataset:
         return data, annotations
 
 
-def _parse_autolabeled_scenes(scene_dir, requested_autolabels, autolabel_root = None):
+def _parse_autolabeled_scenes(scene_dir, requested_autolabels, autolabel_root = None, skip_missing_data=False):
     """Parse autolabeled scene JSONs
 
     Parameters
@@ -1796,6 +1821,12 @@ def _parse_autolabeled_scenes(scene_dir, requested_autolabels, autolabel_root = 
 
     requested_autolabels: tuple[str]
         Tuple of strings of format "<autolabel_model>/<annotation_key>"
+    
+    autolabel_root: str, default: None
+        Path to autolabel root folder
+
+    skip_missing_data: bool, defaul: False
+        If true, skip over missing autolabel scenes
 
     Returns
     -------
@@ -1817,7 +1848,14 @@ def _parse_autolabeled_scenes(scene_dir, requested_autolabels, autolabel_root = 
         autolabel_scene = os.path.join(autolabel_dir, SCENE_JSON_FILENAME)
 
         assert autolabel_type in ANNOTATION_KEY_TO_TYPE_ID, 'Autolabel type {} not valid'.format(autolabel_type)
-        assert os.path.exists(autolabel_dir), 'Path to autolabels {} does not exist'.format(autolabel_dir)
-        assert os.path.exists(autolabel_scene), 'Scene JSON expected but not found at {}'.format(autolabel_scene)
+
+        if skip_missing_data:
+            if not( os.path.exists(autolabel_dir) and os.path.exists(autolabel_scene)):
+                logging.debug(f'skipping autolabel {autolabel_dir}')
+                continue
+        else:
+            assert os.path.exists(autolabel_dir), 'Path to autolabels {} does not exist'.format(autolabel_dir)
+            assert os.path.exists(autolabel_scene), 'Scene JSON expected but not found at {}'.format(autolabel_scene)
+            
         autolabeled_scenes[autolabel] = SceneContainer(autolabel_scene, directory=autolabel_dir)
     return autolabeled_scenes

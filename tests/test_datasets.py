@@ -10,7 +10,6 @@ from dgp.utils.pose import Pose
 from dgp.utils.testing import assert_array_equal, assert_true
 from tests import TEST_DATA_DIR
 
-
 class TestDataset(unittest.TestCase):
     DGP_TEST_DATASET_DIR = os.path.join(TEST_DATA_DIR, "dgp")
     EXPECTED_FIELDS = set([
@@ -193,7 +192,6 @@ class TestDataset(unittest.TestCase):
         for idx in range(len(cached_dataset.datum_index)):
             assert_array_equal(cached_dataset.datum_index[idx], dataset.datum_index[idx])
         assert_true(cached_dataset.dataset_item_index == dataset.dataset_item_index)
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -78,7 +78,7 @@ class _SynchronizedDataset(BaseDataset):
     ):
         self.set_context(backward=backward_context, forward=forward_context, accumulation_context=accumulation_context)
         self.generate_depth_from_datum = generate_depth_from_datum
-        self.only_annotated_datums = only_annotated_datums if requested_annotations else False
+        self.only_annotated_datums = only_annotated_datums if requested_annotations or requested_autolabels else False
         self.transform_accumulated_box_points = transform_accumulated_box_points
 
         super().__init__(
@@ -138,7 +138,6 @@ class _SynchronizedDataset(BaseDataset):
     def _item_index_for_scene(scene_idx, scene, backward_context, forward_context, only_annotated_datums):
         st = time.time()
         logging.debug(f'Indexing scene items for {scene.scene_path}')
-
         if not only_annotated_datums:
             # Define a safe sample range given desired context
             sample_range = np.arange(backward_context, len(scene.datum_index) - forward_context)

@@ -22,7 +22,7 @@ from dgp.constants import ANNOTATION_KEY_TO_TYPE_ID, ANNOTATION_TYPE_ID_TO_KEY
 from dgp.proto.scene_pb2 import Scene
 from dgp.utils.pose import Pose
 from dgp.utils.protobuf import open_pbobject, save_pbobject_as_json
-from mmdet3d.core.bbox import LiDARInstance3DBoxes
+#from mmdet3d.core.bbox import LiDARInstance3DBoxes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
