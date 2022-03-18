@@ -1,0 +1,125 @@
+{
+    "items": [
+        {
+        "color": {
+            "b": 200,
+            "g": 20,
+            "r": 10
+        },
+        "id": 0,
+        "isthing": true,
+        "name": "Unlabeled",
+        "supercategory": ""
+        },
+      {
+        "color": {
+          "b": 100,
+          "g": 60,
+          "r": 0
+        },
+        "id": 3,
+        "isthing": true,
+        "name": "Other",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 32,
+          "g": 11,
+          "r": 119
+        },
+        "id": 1,
+        "isthing": true,
+        "name": "Building",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 142,
+          "g": 0,
+          "r": 0
+        },
+        "id": 4,
+        "isthing": true,
+        "name": "Pedestrian",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 90,
+          "g": 0,
+          "r": 0
+        },
+        "id": 5,
+        "isthing": true,
+        "name": "Pole",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 153,
+          "g": 153,
+          "r": 225
+        },
+        "id": 9,
+        "isthing": true,
+        "name": "Vegetation",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 220,
+          "g": 220,
+          "r": 0
+        },
+        "id": 10,
+        "isthing": true,
+        "name": "Vehicles",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 230,
+          "g": 0,
+          "r": 0
+        },
+        "id": 12,
+        "isthing": true,
+        "name": "TrafficSign",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 60,
+          "g": 20,
+          "r": 220
+        },
+        "id": 18,
+        "isthing": true,
+        "name": "TrafficLight",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 140,
+          "g": 150,
+          "r": 230
+        },
+        "id": 19,
+        "isthing": true,
+        "name": "Static",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 0,
+          "g": 0,
+          "r": 255
+        },
+        "id": 20,
+        "isthing": true,
+        "name": "Dynamic",
+        "supercategory": ""
+      }
+    ]
+  }

@@ -1,0 +1,257 @@
+{
+    "items": [
+      {
+        "color": {
+          "b": 200,
+          "g": 20,
+          "r": 10
+        },
+        "id": 0,
+        "isthing": false,
+        "name": "Unlabeled",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 32,
+          "g": 11,
+          "r": 119
+        },
+        "id": 1,
+        "isthing": false,
+        "name": "Building",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 70,
+          "g": 70,
+          "r": 70
+        },
+        "id": 2,
+        "isthing": false,
+        "name": "Fence",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 100,
+          "g": 60,
+          "r": 0
+        },
+        "id": 3,
+        "isthing": true,
+        "name": "Other",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 142,
+          "g": 0,
+          "r": 0
+        },
+        "id": 4,
+        "isthing": true,
+        "name": "Pedestrian",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 90,
+          "g": 0,
+          "r": 0
+        },
+        "id": 5,
+        "isthing": true,
+        "name": "Pole",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 107,
+          "g": 154,
+          "r": 14
+        },
+        "id": 6,
+        "isthing": true,
+        "name": "RoadLine",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 220,
+          "g": 128,
+          "r": 70
+        },
+        "id": 7,
+        "isthing": false,
+        "name": "Road",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 153,
+          "g": 153,
+          "r": 190
+        },
+        "id": 8,
+        "isthing": false,
+        "name": "Sidewalk",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 153,
+          "g": 153,
+          "r": 225
+        },
+        "id": 9,
+        "isthing": false,
+        "name": "Vegetation",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 220,
+          "g": 220,
+          "r": 0
+        },
+        "id": 10,
+        "isthing": true,
+        "name": "Vehicles",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 201,
+          "g": 20,
+          "r": 10
+        },
+        "id": 11,
+        "isthing": false,
+        "name": "Wall",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 230,
+          "g": 0,
+          "r": 0
+        },
+        "id": 12,
+        "isthing": true,
+        "name": "TrafficSign",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 81,
+          "g": 0,
+          "r": 81
+        },
+        "id": 13,
+        "isthing": false,
+        "name": "Sky",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 70,
+          "g": 80,
+          "r": 100
+        },
+        "id": 14,
+        "isthing": false,
+        "name": "Ground",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 202,
+          "g": 20,
+          "r": 10
+        },
+        "id": 15,
+        "isthing": false,
+        "name": "Bridge",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 90,
+          "g": 120,
+          "r": 150
+        },
+        "id": 16,
+        "isthing": false,
+        "name": "RailTrack",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 1,
+          "g": 0,
+          "r": 0
+        },
+        "id": 17,
+        "isthing": false,
+        "name": "GuardRail",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 60,
+          "g": 20,
+          "r": 220
+        },
+        "id": 18,
+        "isthing": true,
+        "name": "TrafficLight",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 140,
+          "g": 150,
+          "r": 230
+        },
+        "id": 19,
+        "isthing": true,
+        "name": "Static",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 0,
+          "g": 0,
+          "r": 255
+        },
+        "id": 20,
+        "isthing": true,
+        "name": "Dynamic",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 128,
+          "g": 64,
+          "r": 128
+        },
+        "id": 21,
+        "isthing": false,
+        "name": "Water",
+        "supercategory": ""
+      },
+      {
+        "color": {
+          "b": 204,
+          "g": 20,
+          "r": 10
+        },
+        "id": 22,
+        "isthing": false,
+        "name": "Terrain",
+        "supercategory": ""
+      }
+    ]
+  }
