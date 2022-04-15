@@ -263,6 +263,7 @@ class CarlaDGPAgent():
         self.actor_list.append(vehicle)
 
         self.intrinsics_lookup = {}
+        self.distortion_lookup = {}
         self.calibration_table = {}
         self.ontology_table = {'semantic_segmentation_2d': semseg_ontology, 'bounding_box_3d': cuboid_ontology}
 
@@ -273,9 +274,10 @@ class CarlaDGPAgent():
         for datum in datums:
             datum_type = datum.pop('datum_type')
             if datum_type == 'image':
-                camera_actors, intrinsics, extrinsics = self.get_camera_sensor(**datum)
+                camera_actors, intrinsics, extrinsics, distortion = self.get_camera_sensor(**datum)
                 self.actor_list.extend(camera_actors)
                 self.intrinsics_lookup[datum['name']] = intrinsics
+                self.distortion_lookup[datum['name']] = distortion
                 self.calibration_table[datum['name']] = carla_pose_to_dgp_pose(extrinsics, swap_axes=True)
 
             elif datum_type == 'point_cloud':
@@ -313,14 +315,19 @@ class CarlaDGPAgent():
         bp_library = self.world.get_blueprint_library()
         # TODO: move these into the car spec json
         bp = bp_library.find('sensor.lidar.ray_cast')
-        bp.set_attribute('range', str(200.0))
+        bp.set_attribute('range', str(250.0))
         bp.set_attribute('channels', str(128))
         #bp.set_attribute('horizontal_fov', str(90))
         bp.set_attribute('upper_fov', str(20.0))
         bp.set_attribute('lower_fov', str(-25.0))
         bp.set_attribute('rotation_frequency', str(10))
-        bp.set_attribute('points_per_second', str(200000))
+        bp.set_attribute('points_per_second', str(1_000_000))
         bp.set_attribute('sensor_tick', str(.1))
+        # give me all the points. a perfect lidar so we can use this for a visibility filter
+        bp.set_attribute('atmosphere_attenuation_rate', str(0.0))
+        bp.set_attribute('dropoff_general_rate', str(0.0))
+        bp.set_attribute('dropoff_intensity_limit', str(0.0))
+         
 
         actor = self.world.spawn_actor(bp, transform, attach_to=self.ego)
         sensor_type = ANNOTAION_TO_SENSOR_TYPE['point_cloud']
@@ -331,7 +338,7 @@ class CarlaDGPAgent():
         actor.listen(f)
         return actor, transform
 
-    def get_camera_sensor(self, name, height, width, fov, tvec, rvec, annotations=None, attributes=None):
+    def get_camera_sensor(self, name, height, width, fov, tvec, rvec, annotations=None, attributes=None, distortion=None):
         tx, ty, tz = tvec
         roll, pitch, yaw = rvec
 
@@ -372,7 +379,7 @@ class CarlaDGPAgent():
             actor.listen(f)
             actor_list.append(actor)
 
-        return actor_list, intrinsics, transform
+        return actor_list, intrinsics, transform, distortion
 
     def get_sample(self, frame):
         """Get a sample for a specific frame"""
@@ -422,6 +429,7 @@ class CarlaDGPAgent():
                     results.update({'datum_type': 'image'})
                     results.update({
                         'intrinsics': self.intrinsics_lookup[datum],
+                        'distortion': self.distortion_lookup[datum],
                         'extrinsics': self.calibration_table[datum]
                     })
 

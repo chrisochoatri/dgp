@@ -19,7 +19,7 @@ from dgp.constants import ANNOTATION_KEY_TO_TYPE_ID
 from dgp.proto import geometry_pb2, point_cloud_pb2, radar_point_cloud_pb2
 from dgp.proto.sample_pb2 import Datum, SampleCalibration
 from dgp.proto.scene_pb2 import Scene
-from dgp.utils.camera import pbobject_from_camera_matrix
+from dgp.utils.camera import pbobject_from_camera_matrix, pbobject_from_camera_matrix_and_distortion
 from dgp.utils.pose import Pose
 from dgp.utils.protobuf import (generate_uid_from_pbobject,save_pbobject_as_json)
 
@@ -186,7 +186,8 @@ class DGPSceneConstructor():
         # Camera intrinsics
         self.calibration_for_current_sample.names.extend([camera_datum.id.name])
         intrinsics = datum['intrinsics']
-        self.calibration_for_current_sample.intrinsics.extend([pbobject_from_camera_matrix(intrinsics)])
+        distortion = datum.get('distortion', None)
+        self.calibration_for_current_sample.intrinsics.extend([pbobject_from_camera_matrix_and_distortion(intrinsics, distortion)])
 
         # Camera extrinsics
         extrinsics_VS = datum['extrinsics'].to_proto()

@@ -68,6 +68,31 @@ def pbobject_from_camera_matrix(K):
     return intrinsics
 
 
+def pbobject_from_camera_matrix_and_distortion(K, distortion=None):
+    """Convert camera intrinsic matrix into pb object.
+ 
+    Parameters
+    ----------
+    K: np.ndarray
+        Camera Intrinsic Matrix
+    
+    distortion: dict[str, float]
+        Dictionary of distortion params i.e, k1,k2,p1,p2,k3,k4,xi,alpha etc
+ 
+    Returns
+    -------
+    intrinsics: geometry_pb2.CameraIntrinsics
+        Camera Intrinsic object
+    """
+    intrinsics = pbobject_from_camera_matrix(K)
+
+    if distortion is not None:
+        for k,v in distortion.items():
+            # TODO: assert the proto contains this value
+            setattr(intrinsics, k, v) 
+
+    return intrinsics
+
 def camera_matrix_from_pbobject(intrinsics):
     """Convert CameraIntrinsics pbobject to 3x3 camera matrix
 
@@ -140,7 +165,7 @@ class Camera:
         return rvec
 
     @classmethod
-    def from_params(cls, fx, fy, cx, cy, p_cw=None):
+    def from_params(cls, fx, fy, cx, cy, p_cw=None, distortion=None):
         """Create camera batch from calibration parameters.
 
         Parameters
@@ -160,6 +185,9 @@ class Camera:
         p_cw: Pose
             Pose from world to camera frame.
 
+        distortion_params: dict[str, float]
+            Dictionary of 
+
         Returns
         ----------
         Camera
@@ -170,7 +198,7 @@ class Camera:
             [0, fy, cy],
             [0, 0, 1],
         ])
-        return cls(K=K, p_cw=p_cw)
+        return cls(K=K, D=distortion, p_cw=p_cw,)
 
     @property
     def fx(self):

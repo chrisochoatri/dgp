@@ -935,8 +935,9 @@ class BaseDataset:
                 p_WS = Pose.load(extrinsic)
                 # If the intrinsics are invalid, i.e. fx = fy = 0, then it is
                 # assumed to be a LIDAR sensor.
+                distortion = {'xi': getattr(intrinsic, 'xi', None), 'alpha': getattr(intrinsic, 'alpha', None) }
                 cam = Camera.from_params(
-                    intrinsic.fx, intrinsic.fy, intrinsic.cx, intrinsic.cy, p_WS
+                    intrinsic.fx, intrinsic.fy, intrinsic.cx, intrinsic.cy, p_WS, distortion = distortion
                 ) if intrinsic.fx > 0 and intrinsic.fy > 0 else None
                 calibration_table[(calibration_key, name.lower())] = (p_WS, cam)
         return calibration_table
@@ -1407,11 +1408,13 @@ class BaseDataset:
 
         if self.calibration_table:
             camera_intrinsics = self.get_camera_calibration(sample.calibration_key, datum.id.name).K
+            camera_distortion = self.get_camera_calibration(sample.calibration_key, datum.id.name).D 
             pose_VC = self.get_sensor_extrinsics(sample.calibration_key, datum.id.name)
             # Get ego-pose for the image (at the corresponding image timestamp t=Tc)
             pose_WC_Tc = Pose.load(datum.datum.image.pose)
         else:
             camera_intrinsics = None
+            camera_distortion = None
             pose_VC = None
             pose_WC_Tc = Pose()
 
@@ -1423,6 +1426,7 @@ class BaseDataset:
             "datum_name": datum.id.name,
             "rgb": image,
             "intrinsics": camera_intrinsics,
+            "distortion": camera_distortion,
             "extrinsics": pose_VC,
             "pose": pose_WC_Tc
         })
