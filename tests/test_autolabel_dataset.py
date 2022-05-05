@@ -3,11 +3,14 @@ import os
 import unittest
 from shutil import copytree, rmtree
 
+import numpy as np
+
 from dgp import (
     AUTOLABEL_FOLDER, AUTOLABEL_SCENE_JSON_NAME, BOUNDING_BOX_2D_FOLDER, BOUNDING_BOX_3D_FOLDER, DEPTH_FOLDER,
-    INSTANCE_SEGMENTATION_2D_FOLDER, INSTANCE_SEGMENTATION_3D_FOLDER, ONTOLOGY_FOLDER, SEMANTIC_SEGMENTATION_2D_FOLDER,
-    SEMANTIC_SEGMENTATION_3D_FOLDER
+    FEATURES_FOLDER, INSTANCE_SEGMENTATION_2D_FOLDER, INSTANCE_SEGMENTATION_3D_FOLDER, ONTOLOGY_FOLDER,
+    SEMANTIC_SEGMENTATION_2D_FOLDER, SEMANTIC_SEGMENTATION_3D_FOLDER
 )
+from dgp.annotations import NPZFeatureAnnotation
 from dgp.constants import ANNOTATION_KEY_TO_TYPE_ID
 from dgp.datasets.synchronized_dataset import SynchronizedSceneDataset
 from dgp.proto.scene_pb2 import Scene
@@ -22,10 +25,16 @@ ANNOTATION_TYPE_ID_TO_FOLDER = {
     'semantic_segmentation_3d': SEMANTIC_SEGMENTATION_3D_FOLDER,
     'instance_segmentation_2d': INSTANCE_SEGMENTATION_2D_FOLDER,
     'instance_segmentation_3d': INSTANCE_SEGMENTATION_3D_FOLDER,
+    'features': FEATURES_FOLDER,
 }
 
 
-def clone_scene_as_autolabel(dataset_root, autolabel_root, autolabel_model, autolabel_type):
+def clone_scene_as_autolabel(
+    dataset_root,
+    autolabel_root,
+    autolabel_model,
+    autolabel_type,
+):
     """Helper function to copy a scene directory for use as autolabels
 
     Parameters
@@ -41,6 +50,7 @@ def clone_scene_as_autolabel(dataset_root, autolabel_root, autolabel_model, auto
 
     autolabel_type: str
         Annotation type i.e., 'bounding_box_3d', 'depth' etc
+
     """
     # For each scene dir, copy the requested annotation into the new autolabel folder
     autolabel_dirs = []
@@ -61,19 +71,28 @@ def clone_scene_as_autolabel(dataset_root, autolabel_root, autolabel_model, auto
         for scene_json in os.listdir(full_scene_dir):
             if 'scene' in scene_json and scene_json.endswith('json'):
                 base_scene = open_pbobject(os.path.join(full_scene_dir, scene_json), Scene)
+
                 for i in range(len(base_scene.data)):
                     name = base_scene.data[i].id.name
                     datum = base_scene.data[i].datum
                     datum_type = datum.WhichOneof('datum_oneof')
                     datum_value = getattr(datum, datum_type)  # This is datum.image or datum.point_cloud etc
                     annotation_type_id = ANNOTATION_KEY_TO_TYPE_ID[autolabel_type]
-                    current_annotation = datum_value.annotations[annotation_type_id]
-                    # NOTE: this should not actually change the path but is included for clarity
-                    datum_value.annotations[annotation_type_id] = os.path.join(
-                        ANNOTATION_TYPE_ID_TO_FOLDER[autolabel_type], name, os.path.basename(current_annotation)
-                    )
+
+                    if autolabel_type in ('features', ):
+                        feat_dict = {'foo': np.eye(3), 'phi': np.ones((10, 10))}
+                        feat = NPZFeatureAnnotation(feat_dict)
+                        save_path = os.path.join(
+                            autolabel_scene_dir, ANNOTATION_TYPE_ID_TO_FOLDER[autolabel_type], name
+                        )
+                        os.makedirs(save_path, exist_ok=True)
+                        feat_save_path = feat.save(save_path)
+                        datum_value.annotations[annotation_type_id] = os.path.join(
+                            ANNOTATION_TYPE_ID_TO_FOLDER[autolabel_type], name, os.path.basename(feat_save_path)
+                        )
 
                 save_pbobject_as_json(base_scene, os.path.join(autolabel_scene_dir, AUTOLABEL_SCENE_JSON_NAME))
+
                 # Only modify one scene.json, test scene should not contain multiple scene.jsons
                 break
 
@@ -82,10 +101,11 @@ def clone_scene_as_autolabel(dataset_root, autolabel_root, autolabel_model, auto
             rmtree(ontology_dir)
         copytree(os.path.join(full_scene_dir, ONTOLOGY_FOLDER), ontology_dir)
 
-        annotation_dir = os.path.join(autolabel_scene_dir, ANNOTATION_TYPE_ID_TO_FOLDER[autolabel_type])
-        if os.path.exists(annotation_dir):
-            rmtree(annotation_dir)
-        copytree(os.path.join(full_scene_dir, ANNOTATION_TYPE_ID_TO_FOLDER[autolabel_type]), annotation_dir)
+        if autolabel_type not in ('features', ):
+            annotation_dir = os.path.join(autolabel_scene_dir, ANNOTATION_TYPE_ID_TO_FOLDER[autolabel_type])
+            if os.path.exists(annotation_dir):
+                rmtree(annotation_dir)
+            copytree(os.path.join(full_scene_dir, ANNOTATION_TYPE_ID_TO_FOLDER[autolabel_type]), annotation_dir)
 
     return autolabel_dirs
 
@@ -123,6 +143,38 @@ class TestAutolabelDataset(unittest.TestCase):
             for sample in context:
                 lidar = sample[0]
                 assert lidar['bounding_box_3d'] == lidar[requested_autolabels[0]]
+
+    def test_autolabels_default_root_features(self):
+        """Test that we can load autolabels stored in scene/autolabels/model/autolabel_type with feature annotations"""
+
+        scenes_dataset_json = os.path.join(self.DGP_TEST_DATASET_DIR, "test_scene", "scene_dataset_v1.0.json")
+        autolabel_model = 'test-model'
+        autolabel_annotation = 'features'
+        requested_autolabels = (f'{autolabel_model}/{autolabel_annotation}', )
+        dataset_root = os.path.dirname(scenes_dataset_json)
+        autolabel_root = dataset_root
+
+        clone_scene_as_autolabel(dataset_root, autolabel_root, autolabel_model, autolabel_annotation)
+
+        dataset = SynchronizedSceneDataset(
+            scenes_dataset_json,
+            split='train',
+            datum_names=['LIDAR'],
+            forward_context=1,
+            backward_context=1,
+            requested_annotations=None,
+            requested_autolabels=requested_autolabels,
+            autolabel_root=autolabel_root,
+            use_diskcache=False
+        )
+
+        assert len(dataset) == 2
+
+        for context in dataset:
+            for sample in context:
+                lidar = sample[0]
+                assert 'test-model/features' in lidar
+                assert lidar['test-model/features'] is not None
 
     def test_autolabels_custom_root(self):
         """Test that we can load autolabels using autolabel_root"""

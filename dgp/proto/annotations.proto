@@ -70,6 +70,10 @@ enum AnnotationType {
   // Classification.
   // (i.e. imagenet classification label)
   CLASSIFICATION = 15;             // classification
+
+  // Generic feature maps
+  // (i.e. Resnet features, CLIP embeddings, bev features, point features, etc)
+  FEATURES = 16;
 }
 
 // 2D bounding box
