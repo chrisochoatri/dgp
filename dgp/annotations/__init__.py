@@ -16,6 +16,7 @@ from dgp.annotations.semantic_segmentation_2d_annotation import SemanticSegmenta
 from dgp.annotations.key_line_2d_annotation import KeyLine2DAnnotationList  # isort:skip
 from dgp.annotations.key_point_2d_annotation import KeyPoint2DAnnotationList  # isort:skip
 from dgp.annotations.depth_annotation import DenseDepthAnnotation  # isort:skip
+from dgp.annotations.npz_annotation import NPZFeatureAnnotation  # isort:skip
 
 # Ontology handlers for each annotation type
 ONTOLOGY_REGISTRY = {
@@ -32,7 +33,8 @@ ONTOLOGY_REGISTRY = {
     "surface_normals_2d": None,
     "surface_normals_3d": None,
     "motion_vectors_2d": None,
-    "motion_vectors_3d": None
+    "motion_vectors_3d": None,
+    "features": None,
 }
 
 # Annotation objects for each annotation type
@@ -43,7 +45,8 @@ ANNOTATION_REGISTRY = {
     "instance_segmentation_2d": PanopticSegmentation2DAnnotation,
     "key_point_2d": KeyPoint2DAnnotationList,
     "key_line_2d": KeyLine2DAnnotationList,
-    "depth": DenseDepthAnnotation
+    "depth": DenseDepthAnnotation,
+    "features": NPZFeatureAnnotation,
 }
 
 # Annotation groups for each annotation type: 2d/3d
@@ -60,5 +63,5 @@ ANNOTATION_TYPE_TO_ANNOTATION_GROUP = {
     "motion_vectors_3d": "3d",
     "key_point_2d": "2d",
     "key_line_2d": "2d",
-    "depth": "2d"
+    "depth": "2d",
 }

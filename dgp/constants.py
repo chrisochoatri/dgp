@@ -20,11 +20,11 @@ ALL_ANNOTATION_TYPES = tuple(ANNOTATION_KEY_TO_TYPE_ID.keys())
 DATUM_TYPE_TO_SUPPORTED_ANNOTATION_TYPE = OrderedDict({
     'image': [
         'bounding_box_2d', 'bounding_box_3d', 'semantic_segmentation_2d', 'instance_segmentation_2d', 'depth',
-        'surface_normals_2d', 'motion_vectors_2d', 'key_point_2d', 'key_line_2d', 'agent_behavior'
+        'surface_normals_2d', 'motion_vectors_2d', 'key_point_2d', 'key_line_2d', 'agent_behavior', 'features',
     ],
     'point_cloud': [
         'bounding_box_3d', 'semantic_segmentation_3d', 'instance_segmentation_3d', 'surface_normals_3d',
-        'motion_vectors_3d', 'agent_behavior'
+        'motion_vectors_3d', 'agent_behavior', 'features',
     ]
 })
 

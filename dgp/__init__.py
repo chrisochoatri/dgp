@@ -28,6 +28,7 @@ EXTRA_DATA_FOLDER = "extra_data"
 FEATURE_ONTOLOGY_FOLDER = "feature_ontology"
 AGENT_FOLDER = "agent"
 CLASSIFICATION_FOLDER = "classification"
+FEATURES_FOLDER = 'features'
 
 # Scene Directory structure constants
 CALIBRATION_FOLDER = 'calibration'

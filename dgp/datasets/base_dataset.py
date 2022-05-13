@@ -209,6 +209,7 @@ class SceneContainer:
           `_scene`, otherwise load the scene and save it in memory.
           NOTE: Setting use_diskcache to False would exhaust the memory if have a large number of scenes.
         """
+
         if self.use_diskcache:
             if self.scene_path in SceneContainer.SCENE_CACHE:
                 _scene = SceneContainer.SCENE_CACHE.get(self.scene_path)
