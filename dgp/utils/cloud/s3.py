@@ -579,6 +579,7 @@ def get_string_from_s3_file(bucket_name, url):
     -------
     A string representation of the remote file
     """
+    print(f'tring to get bucket_name: {bucket_name} url: {url} ')
     s3_obj = get_s3_object(bucket_name, url)
     return s3_obj.get()['Body'].read().decode('utf-8')
 
