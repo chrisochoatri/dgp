@@ -487,7 +487,7 @@ class BEVImage:
         self.data[uv[:, 1], uv[:, 0], :] = color
 
     def render_radar_point_cloud(
-        self, point_cloud, extrinsics=Pose(), color=RED, velocity=None, velocity_scale=1, velocity_max_pix=.05
+        self, point_cloud, extrinsics=Pose(), color=RED, velocity=None, velocity_scale=1, velocity_max_pix=.05, radius = 7,
     ):
         """Render radar point cloud in BEV perspective.
 
@@ -511,6 +511,10 @@ class BEVImage:
 
         velocity_max_pix: float, optional
             Maximum length of velocity vector rendering in percent of image width. Default: 0.05.
+
+        radius: int, optional
+            radius in pixels to draw points with. Default 7
+
         """
         combined_transform = self._bev_rotation * extrinsics
 
@@ -531,7 +535,7 @@ class BEVImage:
 
         for row in uv:
             cx, cy = row
-            cv2.circle(self.data, (cx, cy), 7, RED, thickness=1)
+            cv2.circle(self.data, (cx, cy), radius, color, thickness=1)
 
         def clip_norm(v, x):
             M = np.linalg.norm(v)
@@ -556,12 +560,12 @@ class BEVImage:
 
                 cx2 = np.clip(cx2, 0, W - 1)
                 cy2 = np.clip(cy2, 0, H - 1)
-                color = GREEN
+                ray_color = GREEN
                 # If moving away from vehicle change the color (not strictly correct because radar is not a (0,0))
                 # TODO: calculate actual radar sensor position
-                if np.dot(row - np.array([W / 2, H / 2]), v_2d) > 0:
-                    color = (255, 110, 199)
-                cv2.arrowedLine(self.data, (cx, cy), (cx2, cy2), color, thickness=1, line_type=cv2.LINE_AA)
+                if np.dot(row - np.array(self._center_pixel), v_2d) > 0:
+                    ray_color = (255, 110, 199)
+                cv2.arrowedLine(self.data, (cx, cy), (cx2, cy2), ray_color, thickness=1, line_type=cv2.LINE_AA)
 
     def render_paths(self, paths, extrinsics=Pose(), colors=(GREEN, ), line_thickness=1, tint=1.0):
         """Render object paths on bev.
