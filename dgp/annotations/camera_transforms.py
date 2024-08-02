@@ -680,11 +680,11 @@ class AffineCameraTransform(BaseTransform):
             keylines = self.transform_keylines_2d(keylines, )
             new_datum['key_line_2d'] = keylines
 
-        if 'key_line_3d' in new_datum:
-            raise NotImplementedError('key_line_3d not yet supported')
+        # if 'key_line_3d' in new_datum:
+        #     raise NotImplementedError('key_line_3d not yet supported')
 
-        if 'key_point_3d' in new_datum:
-            raise NotImplementedError('key_point_3d not yet supported')
+        # if 'key_point_3d' in new_datum:
+        #     raise NotImplementedError('key_point_3d not yet supported')
 
         # TODO(chrisochoatri): verify behavior when Nonetype is passed for each annotation
         # TODO(chrisochoatri): line 2d/3d annotations
